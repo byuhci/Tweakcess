@@ -70,11 +70,11 @@ namespace RhinoTweak
                 HousingMesh hm = new HousingMesh(mo.MeshGeometry, mo.Id, doc);
                 hm.findFeatures();
                 hm.colorFeatures();
-                hm.findWidgetSites(widgetBlanks); 
+                hm.findWidgetSites(widgetBlanks);
+                hm.placeWidgets(); 
                 housingMeshes.Add(hm); 
                 System.Guid IDofOriginalMesh = mo.Id;
                 Mesh theMesh = mo.MeshGeometry;
-                RhinoLog.write("got a mesh with vertices " + theMesh.Vertices.Count);
             }
             doc.Views.Redraw(); 
             return Result.Success;
@@ -86,12 +86,17 @@ namespace RhinoTweak
             // the button. 
             string name = "magnetic button";
             WidgetBlank newBlank = new WidgetBlank(name);
+            // note that the distances from 0 to everything else are the 
+            // smallest 2 distances.  
+            // note that the distance from 0 to 1 is the smallest distance.  
             newBlank.setDistance(0, 1, 5.0);
             newBlank.setDistance(0, 2, 5.66);
             newBlank.setDistance(1, 2, 7.55);
             newBlank.setAngleInDegrees(0, 1, 2, 90.0);
             newBlank.setAngleInDegrees(1, 2, 0, 48.54);
             newBlank.setAngleInDegrees(2, 1, 0, 41.46);
+            // see class for notes about normal is flipped. 
+            newBlank.normalisflipped = false; 
             newBlank.setFeatureType(0, SurfaceFeature.featureType.outie);
             newBlank.setFeatureType(1, SurfaceFeature.featureType.outie);
             newBlank.setFeatureType(2, SurfaceFeature.featureType.outie);

@@ -30,7 +30,7 @@ namespace RhinoTweak
         {
             DrawCylinder(oneEnd, otherEnd, radius, Color.Purple, doc); 
         }
-
+        
         internal static void DrawCylinder(Point3d oneEnd, Point3d otherEnd, double radius, Color color, RhinoDoc doc)
         {
             Vector3d axis = oneEnd - otherEnd;
@@ -41,12 +41,27 @@ namespace RhinoTweak
             Plane plane = new Plane(center, zaxis);
             Circle circle = new Circle(plane, radius);
             Cylinder cylinder = new Cylinder(circle, zaxis.Length);
-            Brep brep = cylinder.ToBrep(true, true);
+            dealWithTheBrep (cylinder.ToBrep(true, true),color, doc);
+           }
+
+        internal static void DrawSphere(Point3d center, double radius, Color color, RhinoDoc doc)
+        {
+            Sphere sphere = new Sphere(center, radius);
+            dealWithTheBrep(sphere.ToBrep(), color, doc); 
+        }
+
+        internal static void DrawCylinder(Point3d oneEnd, Vector3d axis, double length, double radius, Color color, RhinoDoc doc)
+        {
+            DrawCylinder(oneEnd, oneEnd + (axis * length), radius, color, doc); 
+        }
+
+        private static void dealWithTheBrep(Brep brep, Color color, RhinoDoc doc)
+        {
             if (brep != null)
             {
                 Rhino.DocObjects.ObjectAttributes attributes = new Rhino.DocObjects.ObjectAttributes();
                 attributes.ObjectColor = color;
-                attributes.ColorSource = Rhino.DocObjects.ObjectColorSource.ColorFromObject; 
+                attributes.ColorSource = Rhino.DocObjects.ObjectColorSource.ColorFromObject;
                 doc.Objects.AddBrep(brep, attributes);
                 doc.Views.Redraw();
             }

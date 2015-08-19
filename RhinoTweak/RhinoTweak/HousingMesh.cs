@@ -6,16 +6,17 @@ using System.Linq;
 using System.Text;
 using Rhino;
 using System.Drawing;
+using Rhino.DocObjects;
 
 namespace RhinoTweak
 {
     class HousingMesh
     {
-        private List<WidgetSite> widgetSites;
+        private List<WidgetPlacement> WidgetPlacements;
         private List<SurfaceFeature> surfaceFeatures;
         private List<HousingVertex> housingVertices;
-        private Mesh theMesh;
-        private System.Guid meshToManage;
+        private Mesh housingMesh;
+        private System.Guid housingMeshGuid;
         private RhinoDoc doc;
         /// <summary>
         ///  indexed by vertex indices.  
@@ -34,14 +35,14 @@ namespace RhinoTweak
 
         public HousingMesh (Mesh m, Guid m2manage, RhinoDoc doc)
         {
-            widgetSites = new List<WidgetSite>();
+            WidgetPlacements = new List<WidgetPlacement>();
             surfaceFeatures = new List<SurfaceFeature>();
             housingVertices = new List<HousingVertex>();
             this.doc = doc;
 
             // deep copy or this? mdj 
-            theMesh = m.DuplicateMesh();
-            meshToManage = m2manage;
+            housingMesh = m.DuplicateMesh();
+            housingMeshGuid = m2manage;
 
             signedMeanCurvatures = new double[m.Vertices.Count];
             curvatureIsCalcuated = false;
@@ -57,6 +58,103 @@ namespace RhinoTweak
 
         }
 
+        #region insert a widget and a placement site after finding placement sites
+
+        public void placeWidgets ()
+        {
+            foreach (WidgetPlacement placement in WidgetPlacements)
+            {
+                // load up and place the slug.  
+                MeshObject slugMeshObject; 
+                 slugMeshObject = readInMesh(placement, WidgetBlank.pieces.slug); 
+                Mesh slugMesh = moveMeshObjectIntoPlace(slugMeshObject, placement);
+                // do the boolean difference. 
+                List<Mesh> housingMeshList = new List<Mesh>();
+                housingMeshList.Add(housingMesh); 
+                List<Mesh> slugMeshList = new List<Mesh>();
+                slugMeshList.Add(slugMesh); 
+                Mesh[] differencePieces =
+                    Mesh.CreateBooleanDifference(housingMeshList, slugMeshList);
+                housingMesh = changeAMesh(differencePieces[0], housingMeshGuid);
+                doc.Objects.Delete(slugMeshObject.Id, true);
+                doc.Views.Redraw();
+
+                // load up and place the bracket. 
+                MeshObject bracketMeshObject =
+                   readInMesh(placement, WidgetBlank.pieces.bracket);
+                Mesh bracketMesh =
+                    moveMeshObjectIntoPlace(bracketMeshObject, placement); 
+                
+            }
+        }
+
+        private MeshObject readInMesh(WidgetPlacement placement, WidgetBlank.pieces whichPiece)
+        {
+            RhinoLog.debug("importing widget " + placement.widget.name);
+            placement.widget.importSTLFile(whichPiece);
+            // the guid is the guid of the last mesh in the list. 
+            List<RhinoObject> stuffInTheDoc = new List<RhinoObject>();
+            stuffInTheDoc.AddRange(doc.Objects.GetSelectedObjects(false, false));
+            if (stuffInTheDoc.Count != 1)
+            {
+                RhinoLog.error("should have only imported one mesh for the widget");
+                // but it wouldn't be hard to just loop over all the meshes and 
+                // do whatever to each in turn.  
+            }
+            MeshObject widgetMeshObject = (MeshObject)stuffInTheDoc.First();
+            // unselect what we just read in. 
+            stuffInTheDoc.First().Select(false);
+            return widgetMeshObject; 
+        }
+
+        private Mesh moveMeshObjectIntoPlace(MeshObject widgetMeshObject, WidgetPlacement placement)
+        {
+            Mesh widgetMesh = widgetMeshObject.MeshGeometry;
+            Guid widgetMeshGUID = widgetMeshObject.Id;
+            widgetMesh = colorTheMesh(widgetMesh, widgetMeshGUID, Color.Fuchsia);
+            // rotate mesh to match the placement normal.
+            // ASSUME when the widget is imported it's aligned so the Z axis 
+            //   is to be aligned with placement normal.   
+            // ASSUME that the line from feature 0 to feature 1 is aligned 
+            //    with the X axis. 
+            Vector3d axisOfRotation = Vector3d.CrossProduct(Vector3d.ZAxis, placement.normal);
+            RhinoLog.DrawCylinder(Point3d.Origin, axisOfRotation, 1.0, 0.1, Color.BurlyWood, doc);
+            double rotationAngleDegreees =
+                myAngleFinder(Vector3d.ZAxis, placement.normal);
+            widgetMesh = rotate(widgetMesh, rotationAngleDegreees, axisOfRotation, Point3d.Origin, widgetMeshGUID);
+
+            // translate it to match the centroid. 
+            // ASSUME when the widget is imported it's placed so that the 
+            //    location at the world origin is translated to the 
+            //    placement centroid.  
+            // boolean ops to make it part of the mesh.  
+            Vector3d translationVector = placement.centroid - Point3d.Origin;
+            widgetMesh = translate(widgetMesh, translationVector, widgetMeshGUID);
+            return widgetMesh;
+        }
+
+        private Mesh colorTheMesh(Mesh aMesh, Guid meshGUID, Color color)
+        {
+            Color[] listofcolors = new Color[aMesh.Vertices.Count]; 
+            // set each vertex to the color. 
+            for (int i =0; i < aMesh.Vertices.Count; i++)
+            {
+                listofcolors[i] = color;  
+            }
+            // make the change and pass back the new mesh. 
+            return (redrawSurfaceColors(aMesh,meshGUID, listofcolors)); 
+        }
+
+        #endregion
+
+        #region finding widget placement sites on the surface after finding features. 
+        /// <summary>
+        ///  go through this list of widget blanks and find all the widget placements
+        /// that match those blanks by analyzing the surface features found on this 
+        /// mesh.  
+        /// Stores placements in the widgetplacements member.  
+        /// </summary>
+        /// <param name="widgetBlanks"></param>
         internal void findWidgetSites(List<WidgetBlank> widgetBlanks)
         {
             List<SurfaceFeature> featuresToMatch = new List<SurfaceFeature>();
@@ -87,14 +185,7 @@ namespace RhinoTweak
                                     if (matchUpFeaturesInOrder(featuresToMatch, widget))
                                     {
                                         // we have a match.  rejoice. 
-                                        RhinoLog.write("we have a match for " + widget.name);
-                                        Point3d p0 = theMesh.Vertices[featuresToMatch[0].indexIntoTheMeshVertexList];
-                                        Point3d p1 = theMesh.Vertices[featuresToMatch[1].indexIntoTheMeshVertexList];
-                                        Point3d p2 = theMesh.Vertices[featuresToMatch[2].indexIntoTheMeshVertexList];
-                                        RhinoLog.DrawCylinder(p0, p1, 0.2, Color.Red, doc);
-                                        RhinoLog.DrawCylinder(p1, p2, 0.1, Color.Blue, doc);
-                                        RhinoLog.DrawCylinder(p0, p2, 0.6, Color.Green, doc);
-
+                                        foundAMatchStoreIt(featuresToMatch, widget); 
                                     }
                                     featuresToMatch.Remove(thirdSF);
                                 }
@@ -104,6 +195,27 @@ namespace RhinoTweak
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// we found a matching widget placement, stick it in WidgetPlacements for later use. 
+        /// </summary>
+        /// <param name="featuresToMatch"></param>
+        /// <param name="widget"></param>
+        private void foundAMatchStoreIt(List<SurfaceFeature> featuresToMatch, WidgetBlank widget)
+        {
+            RhinoLog.write("we have a match for " + widget.name);
+            Point3d[] matchPoints = new Point3d[3];
+            for (int i = 0; i < 3; i++)
+            {
+                matchPoints[i] = housingMesh.Vertices[featuresToMatch[i].indexIntoTheMeshVertexList];
+            }
+            RhinoLog.DrawCylinder(matchPoints[0], matchPoints[1], 0.2, Color.Red, doc);
+            RhinoLog.DrawCylinder(matchPoints[1], matchPoints[2], 0.1, Color.Blue, doc);
+            RhinoLog.DrawCylinder(matchPoints[0], matchPoints[2], 0.6, Color.Green, doc);
+            WidgetPlacements.Add(new WidgetPlacement(matchPoints, widget));
+            WidgetPlacements.Last().drawNormal(doc);
+            WidgetPlacements.Last().drawCentroid(doc); 
         }
 
         /// <summary>
@@ -122,7 +234,7 @@ namespace RhinoTweak
             {
                 // check type of feature 0. 
                 couldBeAmatch = widget.nthFeatureIsType(0,surfaceFeatures[0]);
-                RhinoLog.debug("matched type"); 
+                //RhinoLog.debug("matched type"); 
             } 
             if (surfaceFeatures.Count >= 2 && couldBeAmatch)
             {
@@ -210,7 +322,7 @@ namespace RhinoTweak
                         .DistanceTo(getPoint3DForIndex(surfaceFeatures[v2].indexIntoTheMeshVertexList));
             double distanceOnObject =
                 widget.distanceFromFeature(v1, v2);
-            RhinoLog.debug("for features "+v1+" and " +v2 +" distance in mesh " + distanceBetweenFeatures + " distance in widget " + distanceOnObject); 
+            //RhinoLog.debug("for features "+v1+" and " +v2 +" distance in mesh " + distanceBetweenFeatures + " distance in widget " + distanceOnObject); 
             return (distancesCloseEnough(distanceBetweenFeatures, widget.distanceFromFeature(v1, v2))); 
         }
 
@@ -221,9 +333,11 @@ namespace RhinoTweak
 
         private Point3d getPoint3DForIndex(int index)
         {
-            return (theMesh.Vertices[index]);
+            return (housingMesh.Vertices[index]);
         }
+        #endregion
 
+        #region related to finding features on the surface. 
         internal void findFeatures()
         {
             // make sure the curvature is calculated. 
@@ -235,7 +349,7 @@ namespace RhinoTweak
             }
             // find the features.  First look at curvature. 
             // large magnitude curvature means you are a feature. 
-            for (int i = 0; i < theMesh.Vertices.Count; i++)
+            for (int i = 0; i < housingMesh.Vertices.Count; i++)
             {
                 if (signedMeanCurvatures[i] > curvatureFeatureThreshold )
                 {
@@ -256,17 +370,17 @@ namespace RhinoTweak
 
         private void calculateSignedMeanCurvature()
         {
-            for (int i = 0; i < theMesh.Vertices.Count; i++)
+            for (int i = 0; i < housingMesh.Vertices.Count; i++)
             {
-                Point3d theVertex = theMesh.Vertices[i];
-                Vector3d vertexNormal = theMesh.Normals[i];
+                Point3d theVertex = housingMesh.Vertices[i];
+                Vector3d vertexNormal = housingMesh.Normals[i];
                 vertexNormal.Unitize();
                 // draw the vertex normal. 
                 //doc.Objects.AddLine(new Line(theVertex, vertexNormal, 10.0));
 
                 // get the neighbors. 
                 ArrayList neighborIndices = new ArrayList();
-                neighborIndices.AddRange(theMesh.Vertices.GetConnectedVertices(i));
+                neighborIndices.AddRange(housingMesh.Vertices.GetConnectedVertices(i));
                 neighborIndices.Remove(i);
                 ArrayList neighborNeighborIndices = new ArrayList();
                 // serach for the largest and smallest local curvatures using forward differencing. 
@@ -280,7 +394,7 @@ namespace RhinoTweak
                     // color the neighbors green. 
                     //pendingColorChanges.Add(new ColorChange(neighborIndex, Color.Green));
                     // draw the neighbor normal 
-                    Point3d neighborVertex = theMesh.Vertices[neighborIndex];
+                    Point3d neighborVertex = housingMesh.Vertices[neighborIndex];
                     // compute the rate of change from here to neighbor as a forward difference. 
                     // using dx/dz in theVertex's local coordinate system.  
                     Vector3d vertexToNeighbor = neighborVertex - theVertex;
@@ -323,23 +437,51 @@ namespace RhinoTweak
                     vertexColors[sf.indexIntoTheMeshVertexList] = sf.color; 
                 }
                 // make the color changes visible. 
-                redrawSurfaceColors(); 
+                housingMesh = redrawSurfaceColors(housingMesh,housingMeshGuid, vertexColors); 
             }
         }
 
-        private void redrawSurfaceColors()
+
+        private Mesh rotate(Mesh mesh, double angleDegrees, Vector3d axisOfRotation, Point3d rotationOrigin, Guid guid)
+        {
+            double angleRadians = angleDegrees * (Math.PI / 180.00);
+            mesh.Rotate(angleRadians, axisOfRotation, rotationOrigin);
+            return (changeAMesh(mesh, guid)); 
+        }
+
+        private Mesh translate(Mesh mesh, Vector3d v, Guid meshGUID)
+        {
+            mesh.Translate(v);
+            return (changeAMesh(mesh, meshGUID)); 
+        }
+
+        /// <summary>
+        /// replace the mesh object at oldmeshGUID with the new mesh. 
+        /// also force a redraw.  
+        /// return the new mesh so people can use it if they want.  
+        /// </summary>
+        /// <param name="newMesh"></param>
+        /// <param name="oldMeshGUID"></param>
+        /// <returns></returns>
+        private Mesh changeAMesh (Mesh newMesh, Guid oldMeshGUID)
+        {
+            doc.Objects.Replace(oldMeshGUID, newMesh);
+            doc.Views.Redraw();
+            return newMesh;
+        }
+
+        private Mesh redrawSurfaceColors(Mesh meshToColor, Guid meshGUID, Color[] vertexColorsToUse)
         {
             // make a new mesh. 
-            Mesh newMesh = theMesh.DuplicateMesh();
+            Mesh newMesh = meshToColor.DuplicateMesh();
             newMesh.VertexColors.Clear(); 
             for (int i = 0; i < newMesh.Vertices.Count; i++)
             {
-                newMesh.VertexColors.SetColor(i, vertexColors[i]); 
+                newMesh.VertexColors.SetColor(i, vertexColorsToUse[i]); 
             }
-            newMesh.FaceNormals.ComputeFaceNormals(); 
-            doc.Objects.Replace( meshToManage, newMesh);
-            doc.Views.Redraw(); 
-            theMesh = newMesh.DuplicateMesh(); 
+            newMesh.FaceNormals.ComputeFaceNormals();
+            return changeAMesh(newMesh, meshGUID); 
         }
+        #endregion
     }
 }

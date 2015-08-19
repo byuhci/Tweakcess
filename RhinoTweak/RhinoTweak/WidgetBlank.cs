@@ -8,29 +8,28 @@ namespace RhinoTweak
     class WidgetBlank
     {
         // some conventions. 
-        // 1.  you pick feature 0 however you like. 
+        // 1.  feature 0 has features 1 and 2 closest.  it has the 
+        //     minimal distance to any other feature.  
         // 2.  but feature 1 is the one closest to 0.  
         // 3.  and feature 2 is the one farthest from 0. 
         // 4.  you can't have 1 and 2 the same distance from 0.  
 
+        // there's different kinds of elements and each has a role
+        // we'll use the pieces enum to generate the file name of the 
+        // stl file that contains the piece we are looking for as 
+        // <name of widget><pieces.toString()>.stl
+        public enum pieces { slug, blank, bracket}; 
         private SurfaceFeature.featureType[] featureTypes;
         private double[,] distances;
         private double[,,] angles;
          public string name {
             get; }
 
-        public WidgetBlank (SurfaceFeature.featureType[] types, 
-                            double [,] distances, 
-                            double [,,] angles,
-                            string widgetName)
-        {
-            featureTypes = types;
-            this.distances = distances;
-            this.angles = angles;
-            this.name = widgetName; 
-            checkDistancesArray();
-            checkAnglesArray();  
-        }
+        // the normal is calculated as vector from point 0 to point 1 
+        // crossed with vector from point 0 to point 2.  
+        // if you want that flipped because your points are laid out
+        // differently then set this to true.  
+        public Boolean normalisflipped { get; set; }
 
         public WidgetBlank(string name)
         {
@@ -38,58 +37,27 @@ namespace RhinoTweak
             angles = new double[3, 3, 3];
             distances = new double[3, 3];
             featureTypes = new SurfaceFeature.featureType[3];
+            normalisflipped = false; 
         }
 
-        public void importSTLFile ()
+        public void importSTLFile (pieces whichOne)
         {
-            string fileName = Constants.workingDirectory+name.Replace(" ","-")+".stl"; 
-            if (!System.IO.File.Exists(fileName))
+            string fileName = name.Replace(" ", "-") + "-"+ whichOne.ToString()+ ".stl"; 
+            string fullyQualifiedFileName = Constants.workingDirectory+fileName; 
+            if (!System.IO.File.Exists(fullyQualifiedFileName))
             {
-                RhinoLog.error("couldn't find file " + fileName);
+                RhinoLog.error("couldn't find file " + fullyQualifiedFileName);
                 return; 
             } else
             {
-                RhinoLog.debug("found file " + fileName);
-                string script = "_-Import \"" + fileName + "\" _Enter";
+                RhinoLog.debug("found file " + fullyQualifiedFileName);
+                string script = "_-Import \"" + fullyQualifiedFileName + "\" _Enter";
                 RhinoLog.debug("command: " + script); 
                 Boolean scriptResult = Rhino.RhinoApp.RunScript(script, true);
                 RhinoLog.debug("result: " + scriptResult.ToString()); 
             }
         } 
           
-        private void checkAnglesArray()
-        {
-            if (angles.GetLength(0) != 3 && angles.GetLength(1) != 3 && 
-                angles.GetLength(2) != 3)
-            {
-                RhinoLog.error("array array for " + name + " has wrong dimensions");
-            }
-            // TODO check symmertry. 
-        }
-
-        private void checkDistancesArray()
-        {
-            if (distances.GetLength(0) != 3 && distances.GetLength(1) != 3)
-            {
-                RhinoLog.error("distances array for " + name + " has wrong dimensions");
-            }
-            // make sure it's symmetric. 
-            for (int i = 0; i < 3; i++)
-            {
-                for (int j = 0; j < 3; j++)
-                {
-                    if (distances[i, j] != distances[j, i])
-                    {
-                        RhinoLog.error("distances not symetric in " + name + " for " + i + "," + j);
-                    }
-                }
-            }
-            if (distances[0,1] >= distances[0,2])
-            {
-                RhinoLog.error("you failed to satisfy the conventions for " + name + " bow your head in abject misery"); 
-            }
-        }
-
 
         /// <summary>
         /// what's the distance between these two feature? 
