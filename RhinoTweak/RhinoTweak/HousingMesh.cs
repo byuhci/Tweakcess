@@ -29,9 +29,12 @@ namespace RhinoTweak
         Boolean curvatureIsCalcuated = false;
         Boolean meshGeometryHasChanged = false;
         Boolean featuresAreFound = false; 
-        private double curvatureFeatureThreshold = 0.21;
+        private double curvatureFeatureThreshold = 0.51;
         private double featureDistanceMatchThreshold = 0.25;
         private double featureAngleMatchThreshold = 3.2;
+        private readonly double curvatureCalculationMinDist = 1.1;
+        private double curvatureCalculationMaxDist = 2.0;
+        private int curvatureSkip =1;
 
         public HousingMesh (Mesh m, Guid m2manage, RhinoDoc doc)
         {
@@ -370,7 +373,7 @@ namespace RhinoTweak
 
         private void calculateSignedMeanCurvature()
         {
-            for (int i = 0; i < housingMesh.Vertices.Count; i++)
+            for (int i = 0; i < housingMesh.Vertices.Count; i+=curvatureSkip)
             {
                 Point3d theVertex = housingMesh.Vertices[i];
                 Vector3d vertexNormal = housingMesh.Normals[i];
@@ -379,47 +382,55 @@ namespace RhinoTweak
                 //doc.Objects.AddLine(new Line(theVertex, vertexNormal, 10.0));
 
                 // get the neighbors. 
-                ArrayList neighborIndices = new ArrayList();
-                neighborIndices.AddRange(housingMesh.Vertices.GetConnectedVertices(i));
-                neighborIndices.Remove(i);
+                HashSet<int> secondGenNeighbIndices = new HashSet<int>();
+                List<int> firstGenNeighbors = new List<int>(); 
+                firstGenNeighbors.AddRange(housingMesh.Vertices.GetConnectedVertices(i));
+                // get the neighbors of the neighbors. 
+                foreach (int firstGenIndex in firstGenNeighbors)
+                {
+                    List<int> result = new List<int>();
+                    result.AddRange(housingMesh.Vertices.GetConnectedVertices(firstGenIndex));
+                    foreach (int secondGenIndex in result)
+                    {
+                        if (!firstGenNeighbors.Contains(secondGenIndex))
+                        {
+                            secondGenNeighbIndices.Add(secondGenIndex);
+                        }
+                    }
+                }
                 ArrayList neighborNeighborIndices = new ArrayList();
                 // serach for the largest and smallest local curvatures using forward differencing. 
                 // these are the principal curvatures. 
-                 double largestLocalCurvature;
-                 double smallestLocalCurvature;
+                double largestLocalCurvature;
+                double smallestLocalCurvature;
                 largestLocalCurvature = -1000.0;
                 smallestLocalCurvature = 1000.0;
-                foreach (int neighborIndex in neighborIndices)
+                double meanCurvature = 0.0;
+                foreach (int secondGenIndex in secondGenNeighbIndices)
                 {
-                    // color the neighbors green. 
-                    //pendingColorChanges.Add(new ColorChange(neighborIndex, Color.Green));
-                    // draw the neighbor normal 
-                    Point3d neighborVertex = housingMesh.Vertices[neighborIndex];
+                    Point3d neighborVertex = housingMesh.Vertices[secondGenIndex];
                     // compute the rate of change from here to neighbor as a forward difference. 
                     // using dx/dz in theVertex's local coordinate system.  
                     Vector3d vertexToNeighbor = neighborVertex - theVertex;
+                    double distanceToNeighbor = vertexToNeighbor.Length;
                     Vector3d localY = Vector3d.CrossProduct(vertexToNeighbor, vertexNormal);
                     localY.Unitize();
                     Vector3d localX = Vector3d.CrossProduct(vertexNormal, localY);
-                    //doc.Objects.AddLine(new Line(theVertex, localX, 5.0));
-                    //doc.Objects.AddLine(new Line(theVertex, localY, 5.0));
-                    //doc.Objects.AddLine(new Line(theVertex, vertexNormal, 5.0));
                     double dx = vertexToNeighbor * localX;
-                    double dz = vertexToNeighbor * vertexNormal;
-                    double curvature = -dz / dx;
-                    /*if (curvature < 0 )
+                        double dz = vertexToNeighbor * vertexNormal;
+                        double curvature = -dz / dx;
+                        if (dx == 0 )
                     {
-                        addColorChangeToList(neighborIndex, Color.Red);
+                        curvature = 0.0; 
                     }
-                    else
-                    {
-                        addColorChangeToList(neighborIndex, Color.Blue); 
-                    }*/
-                    //LogToRhino.writeToRhino("local curvature [" + i + "," + neighborIndex + "] is " + curvature); 
-                    smallestLocalCurvature = Math.Min(smallestLocalCurvature, curvature);
-                    largestLocalCurvature = Math.Max(largestLocalCurvature, curvature);
+                        smallestLocalCurvature = Math.Min(smallestLocalCurvature, curvature);
+                        largestLocalCurvature = Math.Max(largestLocalCurvature, curvature);
                 }
-                double meanCurvature = (smallestLocalCurvature + largestLocalCurvature) / 2.0;
+                if (largestLocalCurvature != -1000.0 &&
+                    smallestLocalCurvature != 1000.0)
+                {
+                    meanCurvature = (smallestLocalCurvature + largestLocalCurvature) / 2.0;
+                }
                 //LogToRhino.writeToRhino("mean curvature " + meanCurvature); 
                 signedMeanCurvatures[i] = meanCurvature;
             }
@@ -427,8 +438,39 @@ namespace RhinoTweak
 
         }
 
+        internal void colorCurvature()
+        {
+            if (curvatureIsCalcuated)
+            {
+                double maxc = -100000;
+                double minc = 100000;
+                for (int i = 0; i < housingMesh.Vertices.Count; i++)
+                {
+                    double curvature = signedMeanCurvatures[i];
+                    maxc = Math.Max(maxc, curvature);
+                    minc = Math.Min(minc, curvature);
+                }
+                RhinoLog.debug("max curvature " + maxc + " min curvature " + minc); 
+                double range = maxc - minc;
+                
+                if (range != 0)
+                {
+                    double scaleTo255Range = 255 / range;
+                    for (int i = 0; i < housingMesh.Vertices.Count; i+= curvatureSkip)
+                    {
+                        double curvature = signedMeanCurvatures[i];
+                        int colorindex = (int)((curvature - minc) * scaleTo255Range);
+                        vertexColors[i] = Color.FromArgb(colorindex, colorindex, colorindex);
+                    }
+                    housingMesh = redrawSurfaceColors(housingMesh, housingMeshGuid, vertexColors);
+                }
+            }
+
+        }
+
         internal void colorFeatures()
         {
+
             if (featuresAreFound)
             {
                 // set the vertex colors for the features.  

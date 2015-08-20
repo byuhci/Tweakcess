@@ -69,9 +69,10 @@ namespace RhinoTweak
             {
                 HousingMesh hm = new HousingMesh(mo.MeshGeometry, mo.Id, doc);
                 hm.findFeatures();
-                hm.colorFeatures();
+//                hm.colorFeatures();
+                hm.colorCurvature(); 
                 hm.findWidgetSites(widgetBlanks);
-                hm.placeWidgets(); 
+                //hm.placeWidgets(); 
                 housingMeshes.Add(hm); 
                 System.Guid IDofOriginalMesh = mo.Id;
                 Mesh theMesh = mo.MeshGeometry;
