@@ -30,7 +30,7 @@ namespace RhinoTweak
         Boolean meshGeometryHasChanged = false;
         Boolean featuresAreFound = false; 
         private double curvatureFeatureThreshold = 0.21;
-        private double featureDistanceMatchThreshold = 0.25;
+        private double featureDistanceMatchThreshold = 0.85;
         private double featureAngleMatchThreshold = 3.2;
 
         public HousingMesh (Mesh m, Guid m2manage, RhinoDoc doc)
@@ -90,14 +90,14 @@ namespace RhinoTweak
 
         private MeshObject readInMesh(WidgetPlacement placement, WidgetBlank.pieces whichPiece)
         {
-            RhinoLog.debug("importing widget " + placement.widget.name);
+            RhinoLog.debug("importing widget " + placement.widget.kind);
             placement.widget.importSTLFile(whichPiece);
             // the guid is the guid of the last mesh in the list. 
             List<RhinoObject> stuffInTheDoc = new List<RhinoObject>();
             stuffInTheDoc.AddRange(doc.Objects.GetSelectedObjects(false, false));
             if (stuffInTheDoc.Count != 1)
             {
-                RhinoLog.error("should have only imported one mesh for the widget");
+                RhinoLog.error("should have imported exactly one mesh for the widget, file not found?");
                 // but it wouldn't be hard to just loop over all the meshes and 
                 // do whatever to each in turn.  
             }
@@ -177,24 +177,39 @@ namespace RhinoTweak
                 {
                     // see if our feature type matches any of those in the widget. 
                     // widget features are ordered.  So we match on the first feature
-                    // first.  
+                    // first.  the behavior of matchupfeatures in order depends 
+                    // on the length of the "featuresToMatch" list fyi.  
+                    // first feature matches? 
                     if (matchUpFeaturesInOrder(featuresToMatch, widget))
                     {
+                        // yes.  
+                        Point3d firstFeaturePoint =
+                            housingMesh.Vertices[sf.indexIntoTheMeshVertexList];
+                        //RhinoLog.DrawSphere(firstFeaturePoint, 0.5, Color.ForestGreen, doc); 
                         // see if there's a feature nearby of the right type 
                         // and in the right place. 
                         // TODO: just go through a neighborhood of other features.  not all of them. 
                         foreach (SurfaceFeature otherSF in surfaceFeatures)
                         {
                             featuresToMatch.Add(otherSF);
+                            // match 2 features? 
                             if (matchUpFeaturesInOrder(featuresToMatch, widget))
                             {
+                                // yes. 
+                                Point3d secondFeaturePoint =
+                                    housingMesh.Vertices[otherSF.indexIntoTheMeshVertexList];
+                                //RhinoLog.DrawCylinder(firstFeaturePoint, secondFeaturePoint, 1.0, Color.Aquamarine, doc); 
                                 foreach (SurfaceFeature thirdSF in surfaceFeatures)
                                 {
                                     featuresToMatch.Add(thirdSF);
+                                    // match 3 features? 
                                     if (matchUpFeaturesInOrder(featuresToMatch, widget))
                                     {
-                                        // we have a match.  rejoice. 
-                                        foundAMatchStoreIt(featuresToMatch, widget); 
+                                        // yes we have a match.  rejoice. 
+                                        foundAMatchStoreIt(featuresToMatch, widget);
+                                        Point3d thirdFeaturePoint =
+                                            housingMesh.Vertices[thirdSF.indexIntoTheMeshVertexList];
+                                        //RhinoLog.DrawCylinder(secondFeaturePoint, thirdFeaturePoint, 1.0, Color.PaleVioletRed, doc); 
                                     }
                                     featuresToMatch.Remove(thirdSF);
                                 }
@@ -213,7 +228,7 @@ namespace RhinoTweak
         /// <param name="widget"></param>
         private void foundAMatchStoreIt(List<SurfaceFeature> featuresToMatch, WidgetBlank widget)
         {
-            RhinoLog.write("we have a match for " + widget.name);
+            RhinoLog.write("we have a match for " + widget.kind);
             Point3d[] matchPoints = new Point3d[3];
             for (int i = 0; i < 3; i++)
             {

@@ -84,8 +84,7 @@ namespace RhinoTweak
         private void makeUpWidgetBlanks()
         {
             // the button. 
-            string name = "magnetic button";
-            WidgetBlank newBlank = new WidgetBlank(name);
+            WidgetBlank newBlank = new WidgetBlank(WidgetBlank.kinds.magnetic_button);
             // note that the distances from 0 to everything else are the 
             // smallest 2 distances.  
             // note that the distance from 0 to 1 is the smallest distance.  
@@ -100,7 +99,26 @@ namespace RhinoTweak
             newBlank.setFeatureType(0, SurfaceFeature.featureType.outie);
             newBlank.setFeatureType(1, SurfaceFeature.featureType.outie);
             newBlank.setFeatureType(2, SurfaceFeature.featureType.outie);
-            widgetBlanks.Add(newBlank); 
+            widgetBlanks.Add(newBlank);
+
+            // the button. 
+            newBlank = new WidgetBlank(WidgetBlank.kinds.slider);
+            // note that the distances from 0 to everything else are the 
+            // smallest 2 distances.  
+            // note that the distance from 0 to 1 is the smallest distance.  
+            newBlank.setDistance(0, 1, 8.0);
+            newBlank.setDistance(0, 2, 34.23);
+            newBlank.setDistance(1, 2, 34.23);
+            newBlank.setAngleInDegrees(0, 1, 2, 83.29);
+            newBlank.setAngleInDegrees(1, 2, 0, 83.29);
+            newBlank.setAngleInDegrees(2, 1, 0, 13.42);
+            // see class for notes about normal is flipped. 
+            newBlank.normalisflipped = false;
+            newBlank.setFeatureType(0, SurfaceFeature.featureType.outie);
+            newBlank.setFeatureType(1, SurfaceFeature.featureType.outie);
+            newBlank.setFeatureType(2, SurfaceFeature.featureType.outie);
+            widgetBlanks.Add(newBlank);
+
 
         }
     }

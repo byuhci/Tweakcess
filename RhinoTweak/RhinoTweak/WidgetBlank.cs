@@ -19,10 +19,12 @@ namespace RhinoTweak
         // stl file that contains the piece we are looking for as 
         // <name of widget><pieces.toString()>.stl
         public enum pieces { slug, blank, bracket}; 
+        // these need to match filenames verbatim. 
+        public enum kinds { slider, magnetic_button}; 
         private SurfaceFeature.featureType[] featureTypes;
         private double[,] distances;
         private double[,,] angles;
-         public string name {
+         public kinds kind {
             get; }
 
         // the normal is calculated as vector from point 0 to point 1 
@@ -31,9 +33,9 @@ namespace RhinoTweak
         // differently then set this to true.  
         public Boolean normalisflipped { get; set; }
 
-        public WidgetBlank(string name)
+        public WidgetBlank(kinds kind)
         {
-            this.name = name;
+            this.kind = kind;
             angles = new double[3, 3, 3];
             distances = new double[3, 3];
             featureTypes = new SurfaceFeature.featureType[3];
@@ -42,7 +44,7 @@ namespace RhinoTweak
 
         public void importSTLFile (pieces whichOne)
         {
-            string fileName = name.Replace(" ", "-") + "-"+ whichOne.ToString()+ ".stl"; 
+            string fileName = kind.ToString()+ "-"+ whichOne.ToString()+ ".stl"; 
             string fullyQualifiedFileName = Constants.workingDirectory+fileName; 
             if (!System.IO.File.Exists(fullyQualifiedFileName))
             {
