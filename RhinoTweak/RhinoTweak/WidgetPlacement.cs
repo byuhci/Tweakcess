@@ -11,7 +11,10 @@ namespace RhinoTweak
     class WidgetPlacement
     {
         private Point3d[] matchPoints;
-
+        internal Vector3d xaxis
+        {
+            get; set;
+        }
         public Vector3d normal
         {
             get; set;
@@ -25,6 +28,7 @@ namespace RhinoTweak
             this.widget = widget1;
             calculateCentroid();
             calculateNormal();
+            calculateXAxis(); 
          }
 
         /// <summary>
@@ -41,6 +45,16 @@ namespace RhinoTweak
             {
                 normal = -1 * normal; 
             }
+        }
+
+        /// <summary>
+        /// by convention by xaxis is the vector that connects 
+        /// point 0 with point 1.  
+        /// </summary>
+        private void calculateXAxis ()
+        {
+            xaxis = matchPoints[1] - matchPoints[0];
+            xaxis.Unitize(); 
         }
 
         private void calculateCentroid()

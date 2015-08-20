@@ -117,11 +117,20 @@ namespace RhinoTweak
             //   is to be aligned with placement normal.   
             // ASSUME that the line from feature 0 to feature 1 is aligned 
             //    with the X axis. 
-            Vector3d axisOfRotation = Vector3d.CrossProduct(Vector3d.ZAxis, placement.normal);
-            RhinoLog.DrawCylinder(Point3d.Origin, axisOfRotation, 1.0, 0.1, Color.BurlyWood, doc);
+            Vector3d axisOfRotationInZ = Vector3d.CrossProduct(Vector3d.ZAxis, placement.normal);
             double rotationAngleDegreees =
                 myAngleFinder(Vector3d.ZAxis, placement.normal);
-            widgetMesh = rotate(widgetMesh, rotationAngleDegreees, axisOfRotation, Point3d.Origin, widgetMeshGUID);
+            widgetMesh = rotate(widgetMesh, rotationAngleDegreees, axisOfRotationInZ, Point3d.Origin, widgetMeshGUID);
+
+            // ASSUME that the widget x axis is aligned with the world x axis on import. 
+            Vector3d rotatedWidgetXAxis = Vector3d.XAxis;
+            double rotationAngleRadians = rotationAngleDegreees * (Math.PI / 180.0); 
+            // and we just rotated the widget so we have to rotate it's local x axis.  
+            rotatedWidgetXAxis.Rotate(rotationAngleRadians, axisOfRotationInZ); 
+            Vector3d axisOfRotationInX = Vector3d.CrossProduct(rotatedWidgetXAxis, placement.xaxis);
+            double rotationAngleDegreesX =
+                myAngleFinder(rotatedWidgetXAxis, placement.xaxis);
+            widgetMesh = rotate(widgetMesh, rotationAngleDegreesX, axisOfRotationInX, Point3d.Origin, widgetMeshGUID); 
 
             // translate it to match the centroid. 
             // ASSUME when the widget is imported it's placed so that the 
