@@ -13,7 +13,7 @@ namespace RhinoTweak
     class HousingMesh
     {
         private List<WidgetPlacement> WidgetPlacements;
-        private List<SurfaceFeature> surfaceFeatures;
+        private HashSet<SurfaceFeature> surfaceFeatures;
         private List<HousingVertex> housingVertices;
         private Mesh housingMesh;
         private System.Guid housingMeshGuid;
@@ -29,8 +29,8 @@ namespace RhinoTweak
         Boolean curvatureIsCalcuated = false;
         Boolean meshGeometryHasChanged = false;
         Boolean featuresAreFound = false; 
-        private double curvatureFeatureThresholdLow = 0.20;
-        private double curvatureFeatureThresholdHigh = 0.26;
+        private double curvatureFeatureThresholdLow = 0.7;
+        private double curvatureFeatureThresholdHigh = 1.5;
         // this was a good set of paramters for feature identification with the broken 
         // curvature estimation that wasn't topology aware. 
         // private double curvatureFeatureThresholdLow = 0.20;
@@ -41,11 +41,13 @@ namespace RhinoTweak
         private int curvatureVertexIncrement = 1;
         private double minCurvatureToColor = 0.9;
         private double maxCurvatureToColor = 1.5;
+        private double flatThresholdForDz = 0.09;
+        private int minFlatsToBeConsideredNotAFeature = 2;
 
         public HousingMesh (Mesh m, Guid m2manage, RhinoDoc doc)
         {
             WidgetPlacements = new List<WidgetPlacement>();
-            surfaceFeatures = new List<SurfaceFeature>();
+            surfaceFeatures = new HashSet<SurfaceFeature>();
             housingVertices = new List<HousingVertex>();
             this.doc = doc;
 
@@ -400,13 +402,55 @@ namespace RhinoTweak
                 {
                     // we have an outie (point poking out with positive curvature) surface feature. 
                     surfaceFeatures.Add(new SurfaceFeature(i,SurfaceFeature.featureType.outie));
-                    surfaceFeatures.Last().color = Color.Firebrick;
                 }
             }
             // that's all the features so far.  
+            // now rule out features by looking for flat spots.  
+            HashSet<SurfaceFeature> flatSpots = findFlatSpots(surfaceFeatures);
+            surfaceFeatures.ExceptWith(flatSpots); 
+
             featuresAreFound = true; 
             RhinoLog.write("found " + surfaceFeatures.Count + " surface features"); 
         }
+
+        private HashSet<SurfaceFeature> findFlatSpots(HashSet<SurfaceFeature> surfaceFeatures)
+        {
+            HashSet<SurfaceFeature> flatSpots = new HashSet<SurfaceFeature>();
+            // go through the surface features so far. 
+            // for each one find the 3rd gen neighbors. 
+            // if more than say 5 of those are flat, that is, delta z < threshold. 
+            // then this must be a flat spot.  
+            foreach (SurfaceFeature sf in surfaceFeatures)
+            {
+                HashSet<int> verticesIn3rdGen = getOnlyNthGeneration(3, sf.indexIntoTheMeshVertexList);
+                vertexColors[sf.indexIntoTheMeshVertexList] = Color.Red; 
+                int flatCount = 0; 
+                foreach (int neighborIndex in verticesIn3rdGen)
+                {
+                    double dx = 0;
+                    double dz = 0;
+                    calculateDxAndDz(sf.indexIntoTheMeshVertexList, neighborIndex, ref dx, ref dz);
+                    if (Math.Abs(dz) < flatThresholdForDz)
+                    {
+                        flatCount++;
+                        vertexColors[neighborIndex] = Color.Gold; 
+                    } 
+                }
+                if (flatCount > minFlatsToBeConsideredNotAFeature)
+                {
+                    flatSpots.Add(sf); 
+                }
+            }
+            // let's color the flat spots. 
+            foreach (SurfaceFeature sf in flatSpots )
+            {
+                int vertexIndex = sf.indexIntoTheMeshVertexList;
+                vertexColors[vertexIndex] = Color.DarkGreen; 
+            }
+            housingMesh = redrawSurfaceColors(housingMesh, housingMeshGuid, vertexColors);
+            return flatSpots; 
+        }
+
 
 
 
@@ -415,8 +459,6 @@ namespace RhinoTweak
             for (int i = 0; i < housingMesh.Vertices.Count; i+= curvatureVertexIncrement)
             {
                 Point3d theVertex = housingMesh.Vertices[i];
-                Vector3d vertexNormal = housingMesh.Normals[i];
-                vertexNormal.Unitize();
                 // draw the vertex normal. 
                 //doc.Objects.AddLine(new Line(theVertex, vertexNormal, 10.0));
 
@@ -440,18 +482,9 @@ namespace RhinoTweak
                     // color the neighbors green. 
                     //pendingColorChanges.Add(new ColorChange(neighborIndex, Color.Green));
                     // draw the neighbor normal 
-                    Point3d neighborVertex = housingMesh.Vertices[neighborIndex];
-                    // compute the rate of change from here to neighbor as a forward difference. 
-                    // using dx/dz in theVertex's local coordinate system.  
-                    Vector3d vertexToNeighbor = neighborVertex - theVertex;
-                    Vector3d localY = Vector3d.CrossProduct(vertexToNeighbor, vertexNormal);
-                    localY.Unitize();
-                    Vector3d localX = Vector3d.CrossProduct(vertexNormal, localY);
-                    //doc.Objects.AddLine(new Line(theVertex, localX, 5.0));
-                    //doc.Objects.AddLine(new Line(theVertex, localY, 5.0));
-                    //doc.Objects.AddLine(new Line(theVertex, vertexNormal, 5.0));
-                    double dx = vertexToNeighbor * localX;
-                    double dz = vertexToNeighbor * vertexNormal;
+                    double dx = 0 ;
+                    double dz = 0;
+                    calculateDxAndDz(i,neighborIndex, ref dx, ref dz);
                     double curvature = -dz / dx;
                     /*if (curvature < 0 )
                     {
@@ -471,6 +504,25 @@ namespace RhinoTweak
             }
             curvatureIsCalcuated = true; 
 
+        }
+
+        private void calculateDxAndDz(int vertexIndex, int neighborVertexIndex, ref double dx, ref double dz)
+        {
+            Point3d theVertex = housingMesh.Vertices[vertexIndex];
+            Point3d neighborVertex = housingMesh.Vertices[neighborVertexIndex];
+            Vector3d vertexNormal = housingMesh.Normals[vertexIndex];
+            vertexNormal.Unitize();
+            // compute the rate of change from here to neighbor as a forward difference. 
+            // using dx/dz in theVertex's local coordinate system.  
+            Vector3d vertexToNeighbor = neighborVertex - theVertex;
+            Vector3d localY = Vector3d.CrossProduct(vertexToNeighbor, vertexNormal);
+            localY.Unitize();
+            Vector3d localX = Vector3d.CrossProduct(vertexNormal, localY);
+            //doc.Objects.AddLine(new Line(theVertex, localX, 5.0));
+            //doc.Objects.AddLine(new Line(theVertex, localY, 5.0));
+            //doc.Objects.AddLine(new Line(theVertex, vertexNormal, 5.0));
+            dx = vertexToNeighbor * localX;
+            dz = vertexToNeighbor * vertexNormal;
         }
 
         private List<int> getNeighborsBrokenIgnoresTopology (int vertex)
@@ -554,6 +606,8 @@ namespace RhinoTweak
             }
             housingMesh = redrawSurfaceColors(housingMesh, housingMeshGuid, vertexColors); 
         }
+
+
 
         internal void colorCurvatureByThisRange (double min, double max)
         {

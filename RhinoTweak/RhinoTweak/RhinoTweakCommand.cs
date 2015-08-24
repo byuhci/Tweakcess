@@ -46,8 +46,8 @@ namespace RhinoTweak
             List<MeshObject> meshesInTheDoc = new List<MeshObject>();
             List<HousingMesh> housingMeshes = new List<HousingMesh>();
 
-            double thresholdEnteredHigh = 0.21;
-            double thresholdEnteredLow = 0.15;
+            double thresholdEnteredLow = 0.7;
+            double thresholdEnteredHigh = 1.5;
             // get the curvature threshold. 
             // Rhino.Input.RhinoGet.GetNumber("curvature upper threshold", false, ref thresholdEnteredHigh);
             //Rhino.Input.RhinoGet.GetNumber("curvature upper threshold", false, ref thresholdEnteredLow);
@@ -78,8 +78,8 @@ namespace RhinoTweak
                 HousingMesh hm = new HousingMesh(mo.MeshGeometry, mo.Id, doc);
                 hm.findFeatures();// thresholdEnteredLow,thresholdEnteredHigh);
 //                hm.colorNthGeneration(2); 
-                hm.colorCurvatureByThisRange(thresholdEnteredLow,thresholdEnteredHigh);
-//                hm.colorFeatures();
+//                hm.colorCurvatureByThisRange(thresholdEnteredLow,thresholdEnteredHigh);
+                hm.colorFeatures();
 //                hm.findWidgetSites(widgetBlanks);
 //               hm.placeWidgets(); 
                 housingMeshes.Add(hm); 
