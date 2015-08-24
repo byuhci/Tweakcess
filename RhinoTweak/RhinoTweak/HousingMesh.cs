@@ -29,9 +29,16 @@ namespace RhinoTweak
         Boolean curvatureIsCalcuated = false;
         Boolean meshGeometryHasChanged = false;
         Boolean featuresAreFound = false; 
-        private double curvatureFeatureThreshold = 0.21;
+        private double curvatureFeatureThresholdLow = 0.20;
+        private double curvatureFeatureThresholdHigh = 0.26;
+        // this was a good set of paramters for feature identification with the broken 
+        // curvature estimation that wasn't topology aware. 
+        // private double curvatureFeatureThresholdLow = 0.20;
+        //private double curvatureFeatureThresholdHigh = 0.26;
+
         private double featureDistanceMatchThreshold = 0.85;
         private double featureAngleMatchThreshold = 3.2;
+        private int curvatureVertexIncrement = 1;
 
         public HousingMesh (Mesh m, Guid m2manage, RhinoDoc doc)
         {
@@ -361,7 +368,18 @@ namespace RhinoTweak
         }
         #endregion
 
+        internal void findFeatures(double thresholdEnteredLow, double thresholdEnteredHigh)
+        {
+            curvatureFeatureThresholdHigh = thresholdEnteredHigh;
+            curvatureFeatureThresholdLow = thresholdEnteredLow; 
+            findFeatures(); 
+        }
+
         #region related to finding features on the surface. 
+        /// <summary>
+        /// ignores innie feature points right now .
+        /// uses a max and min positive curvature.  
+        /// </summary>
         internal void findFeatures()
         {
             // make sure the curvature is calculated. 
@@ -375,26 +393,24 @@ namespace RhinoTweak
             // large magnitude curvature means you are a feature. 
             for (int i = 0; i < housingMesh.Vertices.Count; i++)
             {
-                if (signedMeanCurvatures[i] > curvatureFeatureThreshold )
+                if (signedMeanCurvatures[i] > curvatureFeatureThresholdLow &&
+                    signedMeanCurvatures[i] < curvatureFeatureThresholdHigh)
                 {
                     // we have an outie (point poking out with positive curvature) surface feature. 
                     surfaceFeatures.Add(new SurfaceFeature(i,SurfaceFeature.featureType.outie));
                     surfaceFeatures.Last().color = Color.Firebrick;
                 }
-                if (signedMeanCurvatures[i] < -curvatureFeatureThreshold)
-                {
-                    // we have an innie 
-                    surfaceFeatures.Add(new SurfaceFeature(i, SurfaceFeature.featureType.innie));
-                    surfaceFeatures.Last().color = Color.Purple; 
-                }
             }
+            // that's all the features so far.  
             featuresAreFound = true; 
             RhinoLog.write("found " + surfaceFeatures.Count + " surface features"); 
         }
 
+
+
         private void calculateSignedMeanCurvature()
         {
-            for (int i = 0; i < housingMesh.Vertices.Count; i++)
+            for (int i = 0; i < housingMesh.Vertices.Count; i+= curvatureVertexIncrement)
             {
                 Point3d theVertex = housingMesh.Vertices[i];
                 Vector3d vertexNormal = housingMesh.Normals[i];
@@ -403,17 +419,21 @@ namespace RhinoTweak
                 //doc.Objects.AddLine(new Line(theVertex, vertexNormal, 10.0));
 
                 // get the neighbors. 
-                ArrayList neighborIndices = new ArrayList();
-                neighborIndices.AddRange(housingMesh.Vertices.GetConnectedVertices(i));
-                neighborIndices.Remove(i);
-                ArrayList neighborNeighborIndices = new ArrayList();
+                List<int> neighborIndicesIgnoreTopo = new List<int>();
+                List<int> neighborIndicesUseTopo = new List<int>(); 
+                neighborIndicesIgnoreTopo.AddRange(getNeighborsBrokenIgnoresTopology(i));
+                neighborIndicesUseTopo.AddRange(getNeighborsToplogyAware(i));
+                List<int> indicesAddedByTopo = new List<int>();
+                indicesAddedByTopo.AddRange(neighborIndicesUseTopo); 
+                neighborIndicesIgnoreTopo.Remove(i);
+//                getNeighborsToplogyAware.Remove(i); 
                 // serach for the largest and smallest local curvatures using forward differencing. 
                 // these are the principal curvatures. 
                  double largestLocalCurvature;
                  double smallestLocalCurvature;
                 largestLocalCurvature = -1000.0;
                 smallestLocalCurvature = 1000.0;
-                foreach (int neighborIndex in neighborIndices)
+                foreach (int neighborIndex in neighborIndicesUseTopo)
                 {
                     // color the neighbors green. 
                     //pendingColorChanges.Add(new ColorChange(neighborIndex, Color.Green));
@@ -451,6 +471,163 @@ namespace RhinoTweak
 
         }
 
+        private List<int> getNeighborsBrokenIgnoresTopology (int vertex)
+        {
+            List<int> neighbors = new List<int>();
+            int[] neighborVertices = housingMesh.Vertices.GetConnectedVertices(vertex);
+            neighbors.AddRange(neighborVertices);
+            return neighbors;
+        }
+
+
+        private HashSet<int> getOnlyNthGeneration(int n, int startingVertex)
+        {
+            HashSet<int> nthGeneration = new HashSet<int>();
+            HashSet<int> everyone = new HashSet<int>();
+            HashSet<int> prevGeneration = new HashSet<int>();
+            HashSet<int> nonUniqueNeighbors = new HashSet<int>(); 
+            nthGeneration.UnionWith(makeHashSetOf (getNeighborsToplogyAware(startingVertex))); 
+            for (int generation = 1; generation <= n; generation ++ )
+            {
+                everyone.UnionWith(nthGeneration);
+                prevGeneration.Clear();
+                prevGeneration.UnionWith(nthGeneration); 
+                nthGeneration.Clear(); 
+                foreach (int previous in prevGeneration)
+                {
+                    nonUniqueNeighbors = makeHashSetOf (getNeighborsToplogyAware(previous));
+                    nthGeneration.UnionWith(nonUniqueNeighbors);
+                }
+                nthGeneration.ExceptWith(everyone);
+            }
+            return nthGeneration;  
+        }
+
+        private HashSet<int> makeHashSetOf(List<int> list)
+        {
+            HashSet<int> returnValue = new HashSet<int>();
+            foreach (int i in list)
+            {
+                returnValue.Add(i); 
+            }
+            return returnValue; 
+        }
+
+        private void addListToHashSet(List<int> list, ref HashSet<int> nthGeneration)
+        {
+            foreach (int member in list)
+            {
+                nthGeneration.Add(member); 
+            }
+        }
+
+        private List<int> getNeighborsToplogyAware(int vertex)
+        {
+            List<int> neighbors = new List<int>();
+            Rhino.Geometry.Collections.MeshTopologyVertexList mtvl = housingMesh.TopologyVertices;
+            int vertexTopo = mtvl.TopologyVertexIndex(vertex);
+            int[] neighborsTopo = mtvl.ConnectedTopologyVertices(vertexTopo);
+            for (int neighborTopoIndex = 0; neighborTopoIndex < neighborsTopo.Length; neighborTopoIndex++)
+            {
+                int[] neighborVertices = mtvl.MeshVertexIndices(neighborsTopo[neighborTopoIndex]);
+                for (int neighborIndex = 0; neighborIndex < neighborVertices.Length; neighborIndex++)
+                {
+                    neighbors.Add(neighborVertices[neighborIndex]);
+                }
+            }
+            return neighbors;
+        }
+
+
+        internal void colorNthGeneration (int n )
+        {
+            for (int i = 4; i < housingMesh.Vertices.Count; i += curvatureVertexIncrement)
+            {
+                HashSet<int> nthGeneration = getOnlyNthGeneration(n, i); 
+                foreach (int index in nthGeneration)
+                {
+                    vertexColors[index] = Color.HotPink; 
+                }
+                vertexColors[i] = Color.Crimson; 
+            }
+            housingMesh = redrawSurfaceColors(housingMesh, housingMeshGuid, vertexColors); 
+        }
+
+        internal void colorCurvature()
+        {
+            if (curvatureIsCalcuated)
+            {
+                double maxc = -100000;
+                double minc = 100000;
+                for (int i = 0; i < housingMesh.Vertices.Count; i += curvatureVertexIncrement)
+                {
+                    double curvature = signedMeanCurvatures[i];
+                    maxc = Math.Max(maxc, curvature);
+                    minc = Math.Min(minc, curvature);
+                }
+                RhinoLog.debug("max curvature " + maxc + " min curvature " + minc);
+                double range = maxc - minc;
+                if (range != 0)
+                {
+                    double scaleTo360Range = 360 / range;
+                    for (int i = 0; i<housingMesh.Vertices.Count; i+=curvatureVertexIncrement)
+                    {
+                        double curvature = signedMeanCurvatures[i];
+                        if (curvature > minc && curvature < maxc)
+                        {
+                            // three ways to color  by curvature... 
+                            // 1.  
+                             //vertexColors[i] = ColorByIncrement(curvature, 0.05);
+                            // 2.  
+                            vertexColors[i] = colorByRange(curvature, 0.13, 0.14); // if curvature is defined as first gen topological neighbors using 
+                                // forward differencing only then 0.13 to 0.14 is very tight range for feature identification on some models. 
+                            // 3. 
+                            //int colorindex = (int)((curvature - minc) * scaleTo360Range);
+                            //  vertexColors[i] = RhinoLog.HsvtoColor(colorindex, 0.6, 0.9);
+                        } else
+                        {
+                            vertexColors[i] = Color.Black;
+                            Point3d point = housingMesh.Vertices[i];
+                            Vector3d normal = housingMesh.Normals[i];
+                            normal.Unitize(); 
+                            RhinoLog.DrawCylinder(point, normal, 1.0, 0.2, Color.HotPink, doc); 
+                        }
+                    }
+                    housingMesh = redrawSurfaceColors(housingMesh, housingMeshGuid, vertexColors);
+                }
+            }
+        }
+
+        private Color ColorByIncrement (double value, double increment)
+        {
+            // let's do three bands. 
+            double bandDbl = Math.Abs (value / increment);
+            int globalband = (int) Math.Truncate(bandDbl);
+            int band = globalband % 4;
+            Color[] bandColors = new Color[4] { Color.HotPink, Color.Khaki, Color.Green, Color.Cornsilk};
+            return bandColors[band]; 
+
+        }
+
+        private Color colorByRange (double value, double low, double high)
+        {
+            if (value < high && value > low )
+            {
+                return Color.Red; 
+            }
+            else if (value > high)
+            {
+                return Color.Gold;
+            } 
+            else if (value < low)
+            {
+                return Color.DodgerBlue;
+            } else
+            {
+                return Color.Black; 
+            }
+        }
+
         internal void colorFeatures()
         {
             if (featuresAreFound)
@@ -458,7 +635,10 @@ namespace RhinoTweak
                 // set the vertex colors for the features.  
                 foreach (SurfaceFeature sf in surfaceFeatures)
                 {
-                    vertexColors[sf.indexIntoTheMeshVertexList] = sf.color; 
+                    vertexColors[sf.indexIntoTheMeshVertexList] = sf.color;
+                    Point3d point = housingMesh.Vertices[sf.indexIntoTheMeshVertexList];
+                    Vector3d normal = housingMesh.Normals[sf.indexIntoTheMeshVertexList];
+                    RhinoLog.DrawCylinder(point, normal, 1.0, 0.2, Color.GreenYellow, doc);
                 }
                 // make the color changes visible. 
                 housingMesh = redrawSurfaceColors(housingMesh,housingMeshGuid, vertexColors); 

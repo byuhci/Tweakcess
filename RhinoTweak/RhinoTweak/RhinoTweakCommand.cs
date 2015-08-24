@@ -46,6 +46,12 @@ namespace RhinoTweak
             List<MeshObject> meshesInTheDoc = new List<MeshObject>();
             List<HousingMesh> housingMeshes = new List<HousingMesh>();
 
+            double thresholdEnteredHigh = 0.21;
+            double thresholdEnteredLow = 0.15; 
+            // get the curvature threshold. 
+           // Rhino.Input.RhinoGet.GetNumber("curvature upper threshold", false, ref thresholdEnteredHigh);
+            //Rhino.Input.RhinoGet.GetNumber("curvature upper threshold", false, ref thresholdEnteredLow);
+
             makeUpWidgetBlanks(); 
 
             stuffIntheDoc.AddRange((doc.Objects.FindByObjectType(Rhino.DocObjects.ObjectType.Mesh)));
@@ -68,10 +74,12 @@ namespace RhinoTweak
             foreach (MeshObject mo in meshesInTheDoc)
             {
                 HousingMesh hm = new HousingMesh(mo.MeshGeometry, mo.Id, doc);
-                hm.findFeatures();
-                hm.colorFeatures();
-                hm.findWidgetSites(widgetBlanks);
-                hm.placeWidgets(); 
+                hm.findFeatures();// thresholdEnteredLow,thresholdEnteredHigh);
+//                hm.colorNthGeneration(2); 
+                hm.colorCurvature();
+//                hm.colorFeatures();
+//                hm.findWidgetSites(widgetBlanks);
+//               hm.placeWidgets(); 
                 housingMeshes.Add(hm); 
                 System.Guid IDofOriginalMesh = mo.Id;
                 Mesh theMesh = mo.MeshGeometry;
