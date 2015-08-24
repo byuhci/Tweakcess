@@ -39,6 +39,8 @@ namespace RhinoTweak
         private double featureDistanceMatchThreshold = 0.85;
         private double featureAngleMatchThreshold = 3.2;
         private int curvatureVertexIncrement = 1;
+        private double minCurvatureToColor = 0.9;
+        private double maxCurvatureToColor = 1.5;
 
         public HousingMesh (Mesh m, Guid m2manage, RhinoDoc doc)
         {
@@ -419,21 +421,21 @@ namespace RhinoTweak
                 //doc.Objects.AddLine(new Line(theVertex, vertexNormal, 10.0));
 
                 // get the neighbors. 
-                List<int> neighborIndicesIgnoreTopo = new List<int>();
-                List<int> neighborIndicesUseTopo = new List<int>(); 
-                neighborIndicesIgnoreTopo.AddRange(getNeighborsBrokenIgnoresTopology(i));
-                neighborIndicesUseTopo.AddRange(getNeighborsToplogyAware(i));
+                // three ways to do that... 
+//                List<int> neighborIndicesIgnoreTopo = new List<int>();
+//                List<int> neighborIndicesUseTopo = new List<int>();
+                List<int> neighborIndices2ndGenOnly = new List<int>(); 
+//                neighborIndicesIgnoreTopo.AddRange(getNeighborsBrokenIgnoresTopology(i));
+//                neighborIndicesUseTopo.AddRange(getNeighborsToplogyAware(i));
+                neighborIndices2ndGenOnly.AddRange(getOnlyNthGeneration(2, i)); 
                 List<int> indicesAddedByTopo = new List<int>();
-                indicesAddedByTopo.AddRange(neighborIndicesUseTopo); 
-                neighborIndicesIgnoreTopo.Remove(i);
-//                getNeighborsToplogyAware.Remove(i); 
                 // serach for the largest and smallest local curvatures using forward differencing. 
                 // these are the principal curvatures. 
                  double largestLocalCurvature;
                  double smallestLocalCurvature;
                 largestLocalCurvature = -1000.0;
                 smallestLocalCurvature = 1000.0;
-                foreach (int neighborIndex in neighborIndicesUseTopo)
+                foreach (int neighborIndex in neighborIndices2ndGenOnly)
                 {
                     // color the neighbors green. 
                     //pendingColorChanges.Add(new ColorChange(neighborIndex, Color.Green));
@@ -553,6 +555,13 @@ namespace RhinoTweak
             housingMesh = redrawSurfaceColors(housingMesh, housingMeshGuid, vertexColors); 
         }
 
+        internal void colorCurvatureByThisRange (double min, double max)
+        {
+            minCurvatureToColor = min;
+            maxCurvatureToColor = max;
+            colorCurvature(); 
+        }
+
         internal void colorCurvature()
         {
             if (curvatureIsCalcuated)
@@ -577,10 +586,10 @@ namespace RhinoTweak
                         {
                             // three ways to color  by curvature... 
                             // 1.  
-                             //vertexColors[i] = ColorByIncrement(curvature, 0.05);
+                            // vertexColors[i] = ColorByIncrement(curvature, 0.5);
                             // 2.  
-                            vertexColors[i] = colorByRange(curvature, 0.13, 0.14); // if curvature is defined as first gen topological neighbors using 
-                                // forward differencing only then 0.13 to 0.14 is very tight range for feature identification on some models. 
+                            vertexColors[i] = colorByRange(curvature, minCurvatureToColor, maxCurvatureToColor); // if curvature is defined as only second gen topological neighbors using 
+                                // forward differencing only then 0.7 to 1.5 is a generous range for feature identification on some models. 
                             // 3. 
                             //int colorindex = (int)((curvature - minc) * scaleTo360Range);
                             //  vertexColors[i] = RhinoLog.HsvtoColor(colorindex, 0.6, 0.9);
@@ -621,7 +630,7 @@ namespace RhinoTweak
             } 
             else if (value < low)
             {
-                return Color.DodgerBlue;
+                return Color.White;
             } else
             {
                 return Color.Black; 
