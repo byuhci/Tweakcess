@@ -11,6 +11,9 @@ namespace RhinoTweak
     class WidgetPlacement
     {
         private Point3d[] matchPoints;
+        private double tooCloseThreshold = 0.1;
+        private double minValueForNormalsToBeTooClose = 1.5;
+
         internal Vector3d xaxis
         {
             get; set;
@@ -75,6 +78,53 @@ namespace RhinoTweak
         internal void drawCentroid(RhinoDoc doc)
         {
             RhinoLog.DrawSphere(centroid, 0.5, Color.HotPink,doc);
+        }
+
+        internal void drawLinksBetweenFeatures(RhinoDoc doc)
+        {
+            // thick one from 0 to 1. 
+            RhinoLog.DrawCylinder(matchPoints[0], matchPoints[1], 0.7, Color.Red, doc);
+            // medium from 0 to 2 
+            RhinoLog.DrawCylinder(matchPoints[0], matchPoints[2], 0.3, Color.Blue, doc);
+            // skinny from 2 to 3
+            RhinoLog.DrawCylinder(matchPoints[1], matchPoints[2], 0.1, Color.Green, doc);
+        }
+
+        internal bool isTooCloseButNotEqualTo(WidgetPlacement placement2)
+        {
+            Point3d centroid2 = placement2.centroid;
+            double distance = centroid.DistanceTo(centroid2);
+            return (distance < tooCloseThreshold && distance != 0);
+
+
+        }
+
+        internal bool pointSameWayAs(WidgetPlacement placement2)
+        {
+            Vector3d normal2 = placement2.normal;
+            double dotProduct = normal * normal2;
+            return (dotProduct > minValueForNormalsToBeTooClose) ; 
+        }
+
+        internal void mergeWith(HashSet<WidgetPlacement> otherPlacements)
+        {
+            foreach (WidgetPlacement otherPlacement in otherPlacements)
+            {
+                // add together the points. 
+                for (int i = 0; i < 3; i++)
+                {
+                    matchPoints[i] = (matchPoints[i] + otherPlacement.matchPoints[i]);
+                }
+            }
+            // divide by number of other placements plus 1. 
+            for (int i = 0; i < 3; i++)
+            {
+                matchPoints[i] = matchPoints[i] / (1+otherPlacements.Count); 
+            }
+            // caculate a new centroid. 
+            calculateCentroid();
+            // calculate a new normal.  
+            calculateNormal(); 
         }
     }
 }

@@ -8,7 +8,7 @@ namespace RhinoTweak
     public static class RhinoLog
     {
         internal static  Boolean writeDebugInfo = true;
-        internal static Boolean drawGeometry = false; 
+        internal static Boolean drawGeometry = true; 
         internal static void write(string v)
         {
             RhinoApp.WriteLine(v); 

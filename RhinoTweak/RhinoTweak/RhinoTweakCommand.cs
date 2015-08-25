@@ -45,14 +45,19 @@ namespace RhinoTweak
             List<RhinoObject> stuffIntheDoc = new List<RhinoObject>(); 
             List<MeshObject> meshesInTheDoc = new List<MeshObject>();
             List<HousingMesh> housingMeshes = new List<HousingMesh>();
+            List<WidgetPlacementFilterInterface> widgetPlacementFilters =
+                new List<WidgetPlacementFilterInterface>();
+
+            // add new filters here. 
+            widgetPlacementFilters.Add(new WidgetPlacementRemoveDuplicates()); 
 
             double thresholdEnteredLow = 0.7;
             double thresholdEnteredHigh = 1.5;
             // get the curvature threshold. 
             // Rhino.Input.RhinoGet.GetNumber("curvature upper threshold", false, ref thresholdEnteredHigh);
             //Rhino.Input.RhinoGet.GetNumber("curvature upper threshold", false, ref thresholdEnteredLow);
-             Rhino.Input.RhinoGet.GetNumber("curvature color lower threshold", false, ref thresholdEnteredLow);
-            Rhino.Input.RhinoGet.GetNumber("curvature color upper threshold", false, ref thresholdEnteredHigh);
+            // Rhino.Input.RhinoGet.GetNumber("curvature color lower threshold", false, ref thresholdEnteredLow);
+            //Rhino.Input.RhinoGet.GetNumber("curvature color upper threshold", false, ref thresholdEnteredHigh);
 
             makeUpWidgetBlanks(); 
 
@@ -76,12 +81,17 @@ namespace RhinoTweak
             foreach (MeshObject mo in meshesInTheDoc)
             {
                 HousingMesh hm = new HousingMesh(mo.MeshGeometry, mo.Id, doc);
-                hm.findFeatures();// thresholdEnteredLow,thresholdEnteredHigh);
-//                hm.colorNthGeneration(2); 
-//                hm.colorCurvatureByThisRange(thresholdEnteredLow,thresholdEnteredHigh);
-                hm.colorFeatures();
-//                hm.findWidgetSites(widgetBlanks);
-//               hm.placeWidgets(); 
+                AbstractFeatureFinder featureFinder = new CurvatureBasedFeatureFinder(
+                    hm.theMesh(), doc);
+                featureFinder.findFeatures(); 
+                hm.redrawHousingMesh(featureFinder.colorize());
+                // pick you widget location finder here. 
+                AbstractWidgetLocationFinder widgetPlacementFinder = new WidgetPlacementAutomatic(
+                    hm.theMesh(), featureFinder.getFeatures(), widgetBlanks, doc);
+                widgetPlacementFinder.findPlacements();
+                widgetPlacementFinder.filterPlacements(widgetPlacementFilters); 
+                widgetPlacementFinder.showWidgetSites(); 
+                hm.placeWidgets(widgetPlacementFinder.getPlacements()); 
                 housingMeshes.Add(hm); 
                 System.Guid IDofOriginalMesh = mo.Id;
                 Mesh theMesh = mo.MeshGeometry;

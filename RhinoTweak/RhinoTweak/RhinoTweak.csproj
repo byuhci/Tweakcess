@@ -53,6 +53,11 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AbstractFeatureFinder.cs" />
+    <Compile Include="ColorSchemeInterface.cs" />
+    <Compile Include="CurvatureBasedFeatureFinder.cs" />
+    <Compile Include="Utility.cs" />
+    <Compile Include="WidgetPlacementAutomatic.cs" />
     <Compile Include="Constants.cs" />
     <Compile Include="HousingMesh.cs" />
     <Compile Include="HousingVertex.cs" />
@@ -64,6 +69,9 @@
     <Compile Include="SurfaceFeature.cs" />
     <Compile Include="WidgetBlank.cs" />
     <Compile Include="WidgetPlacement.cs" />
+    <Compile Include="WidgetPlacementFilterInterface.cs" />
+    <Compile Include="AbstractWidgetLocationFinder.cs" />
+    <Compile Include="WidgetPlacementRemoveDuplicates.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
