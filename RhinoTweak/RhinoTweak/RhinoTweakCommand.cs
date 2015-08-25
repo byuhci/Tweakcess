@@ -48,8 +48,6 @@ namespace RhinoTweak
             List<WidgetPlacementFilterInterface> widgetPlacementFilters =
                 new List<WidgetPlacementFilterInterface>();
 
-            // add new filters here. 
-            widgetPlacementFilters.Add(new WidgetPlacementRemoveDuplicates()); 
 
             double thresholdEnteredLow = 0.7;
             double thresholdEnteredHigh = 1.5;
@@ -78,9 +76,13 @@ namespace RhinoTweak
                     RhinoLog.error(e.Message); 
                 }
             }
+            // pick your widget placement filters here. 
+            widgetPlacementFilters.Add(new WidgetPlacementRemoveDuplicates());
+
             foreach (MeshObject mo in meshesInTheDoc)
             {
                 HousingMesh hm = new HousingMesh(mo.MeshGeometry, mo.Id, doc);
+                // pick your feature finder here.  
                 AbstractFeatureFinder featureFinder = new CurvatureBasedFeatureFinder(
                     hm.theMesh(), doc);
                 featureFinder.findFeatures(); 
@@ -89,10 +91,12 @@ namespace RhinoTweak
                 AbstractWidgetLocationFinder widgetPlacementFinder = new WidgetPlacementAutomatic(
                     hm.theMesh(), featureFinder.getFeatures(), widgetBlanks, doc);
                 widgetPlacementFinder.findPlacements();
+                // filter your placements here. 
                 widgetPlacementFinder.filterPlacements(widgetPlacementFilters); 
                 widgetPlacementFinder.showWidgetSites(); 
-                hm.placeWidgets(widgetPlacementFinder.getPlacements()); 
-                housingMeshes.Add(hm); 
+                // change the housing based on the surviving placements here. 
+//                hm.placeWidgets(widgetPlacementFinder.getPlacements()); 
+//                housingMeshes.Add(hm); 
                 System.Guid IDofOriginalMesh = mo.Id;
                 Mesh theMesh = mo.MeshGeometry;
             }

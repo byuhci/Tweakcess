@@ -11,8 +11,8 @@ namespace RhinoTweak
     class WidgetPlacement
     {
         private Point3d[] matchPoints;
-        private double tooCloseThreshold = 0.1;
-        private double minValueForNormalsToBeTooClose = 1.5;
+        private double tooCloseThreshold = 0.8;
+        private double minValueForNormalsToBeTooClose = 0.9;
 
         internal Vector3d xaxis
         {
@@ -48,6 +48,13 @@ namespace RhinoTweak
             {
                 normal = -1 * normal; 
             }
+        }
+
+        internal bool sameKindAs(WidgetPlacement otherPlacement)
+        {
+            WidgetBlank.kinds myType = widget.kind;
+            WidgetBlank.kinds otherType = otherPlacement.widget.kind;
+            return (myType.Equals(otherType)); 
         }
 
         /// <summary>
@@ -102,7 +109,9 @@ namespace RhinoTweak
         internal bool pointSameWayAs(WidgetPlacement placement2)
         {
             Vector3d normal2 = placement2.normal;
-            double dotProduct = normal * normal2;
+            normal.Unitize();
+            normal2.Unitize();
+            double dotProduct = (normal * normal2) / (normal2.Length * normal.Length) ;
             return (dotProduct > minValueForNormalsToBeTooClose) ; 
         }
 

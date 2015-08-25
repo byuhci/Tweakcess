@@ -14,23 +14,32 @@ namespace RhinoTweak
 
         public HashSet<WidgetPlacement> filter(HashSet<WidgetPlacement> existingPlacements)
         {
-            HashSet<WidgetPlacement> matchingPlacements = new HashSet<WidgetPlacement>();
+            RhinoLog.debug("starting with " + existingPlacements.Count + " placements"); 
+           HashSet<WidgetPlacement> matchingPlacements = new HashSet<WidgetPlacement>();
             HashSet<WidgetPlacement> filteredPlacements = new HashSet<WidgetPlacement>(); 
             foreach (WidgetPlacement placement in existingPlacements)
             {
                 matchingPlacements.Clear();
                 foreach (WidgetPlacement otherPlacement in existingPlacements)
                 {
-                    if (placement.isTooCloseButNotEqualTo(otherPlacement) &&
-                        placement.pointSameWayAs(otherPlacement))
+                    Boolean tooClose = placement.isTooCloseButNotEqualTo(otherPlacement);
+                    Boolean pointsSameWay = placement.pointSameWayAs(otherPlacement);
+                    Boolean sameKind = placement.sameKindAs(otherPlacement); 
+                    //RhinoLog.debug(">> tooclose? " + tooClose + " points same way? " + pointsSameWay); 
+                    if (tooClose && pointsSameWay)
                     {
-                        matchingPlacements.Add(otherPlacement);
-                    }
-
+                        if (!sameKind)
+                        {
+                        } else
+                        {
+                            matchingPlacements.Add(otherPlacement);
+                        }
+                    }                    
                 }
                 placement.mergeWith(matchingPlacements);
-                filteredPlacements.Add(placement); 
+                filteredPlacements.Add(placement);
             }
+            RhinoLog.debug("returning " + filteredPlacements.Count); 
             return filteredPlacements; 
         }
     }
