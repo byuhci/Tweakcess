@@ -50,9 +50,12 @@ namespace RhinoTweak
             // now rule out features by looking for flat spots.  
             HashSet<SurfaceFeature> flatSpots = findFlatSpots(surfaceFeatures);
             surfaceFeatures.ExceptWith(flatSpots);
+            RhinoLog.write("found " + surfaceFeatures.Count + " surface features");
+            //mergeDuplicates();
+            RhinoLog.write("found " + surfaceFeatures.Count + " UNIQUE surface features");
 
             featuresAreFound = true;
-            RhinoLog.write("found " + surfaceFeatures.Count + " surface features");
+            RhinoLog.write("removed " + flatSpots.Count + " features that weren't on cones"); 
         }
 
         private HashSet<SurfaceFeature> findFlatSpots(HashSet<SurfaceFeature> surfaceFeatures)

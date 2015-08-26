@@ -84,7 +84,6 @@ namespace RhinoTweak
         /// <param name="widget"></param>
         private void foundAMatchStoreIt(List<SurfaceFeature> featuresToMatch, WidgetBlank widget)
         {
-            RhinoLog.write("we have a match for " + widget.kind);
             Point3d[] matchPoints = new Point3d[3];
             for (int i = 0; i < 3; i++)
             {

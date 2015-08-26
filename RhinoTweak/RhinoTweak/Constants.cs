@@ -9,7 +9,7 @@ namespace RhinoTweak
     {
         public static string workingDirectory = (Environment.CurrentDirectory) + "\\..\\..\\";
 
-        public static double featureDistanceMatchThreshold = 0.85;
+        public static double featureDistanceMatchThreshold = 0.55;
         public static double featureAngleMatchThreshold = 3.2;
         public static int curvatureVertexIncrement = 1;
         public static double minCurvatureToColor = 0.9;
