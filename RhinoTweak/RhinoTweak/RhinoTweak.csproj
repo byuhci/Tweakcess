@@ -69,6 +69,7 @@
     <Compile Include="SurfaceFeature.cs" />
     <Compile Include="WidgetBlank.cs" />
     <Compile Include="WidgetPlacement.cs" />
+    <Compile Include="WidgetPlacementFilterCentroidToSurface.cs" />
     <Compile Include="WidgetPlacementFilterInterface.cs" />
     <Compile Include="AbstractWidgetLocationFinder.cs" />
     <Compile Include="WidgetPlacementRemoveDuplicates.cs" />

@@ -47,7 +47,7 @@ namespace RhinoTweak
             List<HousingMesh> housingMeshes = new List<HousingMesh>();
             List<WidgetPlacementFilterInterface> widgetPlacementFilters =
                 new List<WidgetPlacementFilterInterface>();
-
+            WidgetPlacementRemoveDuplicates removeDuplicates = new WidgetPlacementRemoveDuplicates(); 
 
             double thresholdEnteredLow = 0.7;
             double thresholdEnteredHigh = 1.5;
@@ -76,8 +76,6 @@ namespace RhinoTweak
                     RhinoLog.error(e.Message); 
                 }
             }
-            // pick your widget placement filters here. 
-            widgetPlacementFilters.Add(new WidgetPlacementRemoveDuplicates());
 
             foreach (MeshObject mo in meshesInTheDoc)
             {
@@ -92,10 +90,19 @@ namespace RhinoTweak
                     hm.theMesh(), featureFinder.getFeatures(), widgetBlanks, doc);
                 widgetPlacementFinder.findPlacements();
                 // filter your placements here. 
+                // pick your placement filters here.  Have to do it here because
+                // some need access to the mesh. 
+                widgetPlacementFilters.Clear();
+                widgetPlacementFilters.Add(removeDuplicates);
+                WidgetPlacementFilterCentroidToSurface centroidToSurfaceFilter =
+                    new WidgetPlacementFilterCentroidToSurface(
+                        widgetBlanks, hm);
+               widgetPlacementFilters.Add(centroidToSurfaceFilter);
                 widgetPlacementFinder.filterPlacements(widgetPlacementFilters); 
                 widgetPlacementFinder.showWidgetSites(); 
                 // change the housing based on the surviving placements here. 
-                hm.placeWidgets(widgetPlacementFinder.getPlacements()); 
+                // assume that the housing is a single mesh. 
+                //hm.placeWidgets(widgetPlacementFinder.getPlacements()); 
 //                housingMeshes.Add(hm); 
                 System.Guid IDofOriginalMesh = mo.Id;
                 Mesh theMesh = mo.MeshGeometry;
@@ -123,24 +130,27 @@ namespace RhinoTweak
             newBlank.setFeatureType(0, SurfaceFeature.featureType.outie);
             newBlank.setFeatureType(1, SurfaceFeature.featureType.outie);
             newBlank.setFeatureType(2, SurfaceFeature.featureType.outie);
+            // where is the centroid relative to the surface of the widget? 
+            newBlank.setCentroidOffsetFromSurface(-1.6); 
             widgetBlanks.Add(newBlank);
 
-            // the button. 
+            // the slider. 
             newBlank = new WidgetBlank(WidgetBlank.kinds.slider);
             // note that the distances from 0 to everything else are the 
-            // smallest 2 distances.  
+            // smallest 2 distances.  in millimeters
             // note that the distance from 0 to 1 is the smallest distance.  
-            newBlank.setDistance(0, 1, 8.0);
-            newBlank.setDistance(0, 2, 34.23);
-            newBlank.setDistance(1, 2, 34.23);
-            newBlank.setAngleInDegrees(0, 1, 2, 83.29);
-            newBlank.setAngleInDegrees(1, 2, 0, 83.29);
-            newBlank.setAngleInDegrees(2, 1, 0, 13.42);
+            newBlank.setDistance(0, 1, 7.5);
+            newBlank.setDistance(0, 2, 13);
+            newBlank.setDistance(1, 2, 20);
+            newBlank.setAngleInDegrees(0, 1, 2, 139.5);
+            newBlank.setAngleInDegrees(1, 2, 0, 25.3);
+            newBlank.setAngleInDegrees(2, 1, 0, 15.2);
             // see class for notes about normal is flipped. 
             newBlank.normalisflipped = false;
             newBlank.setFeatureType(0, SurfaceFeature.featureType.outie);
             newBlank.setFeatureType(1, SurfaceFeature.featureType.outie);
             newBlank.setFeatureType(2, SurfaceFeature.featureType.outie);
+            newBlank.setCentroidOffsetFromSurface(4); 
             widgetBlanks.Add(newBlank);
 
 

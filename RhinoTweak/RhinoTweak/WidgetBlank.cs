@@ -24,6 +24,7 @@ namespace RhinoTweak
         private SurfaceFeature.featureType[] featureTypes;
         private double[,] distances;
         private double[,,] angles;
+        private double centroidOffsetFromSurfaceAlongNormal; 
          public kinds kind {
             get; }
 
@@ -60,6 +61,24 @@ namespace RhinoTweak
             }
         } 
           
+
+        /// <summary>
+        /// offset from the centroid to the surface along the normal
+        /// assuming that the normal is unitized this the distance
+        /// to move along the normal to hit the surface.  
+        /// negative if centroid is above surface 
+        /// positive otherwise. 
+        /// </summary>
+        /// <param name="offset"></param>
+        public void setCentroidOffsetFromSurface (double offset)
+        {
+            centroidOffsetFromSurfaceAlongNormal = offset;  
+        }
+
+        public double getCentroidOffsetFromSurfaceAlongNormal()
+        {
+            return centroidOffsetFromSurfaceAlongNormal; 
+        }
 
         /// <summary>
         /// what's the distance between these two feature? 
