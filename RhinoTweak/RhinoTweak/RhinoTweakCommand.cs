@@ -95,7 +95,7 @@ namespace RhinoTweak
                 widgetPlacementFinder.filterPlacements(widgetPlacementFilters); 
                 widgetPlacementFinder.showWidgetSites(); 
                 // change the housing based on the surviving placements here. 
-//                hm.placeWidgets(widgetPlacementFinder.getPlacements()); 
+                hm.placeWidgets(widgetPlacementFinder.getPlacements()); 
 //                housingMeshes.Add(hm); 
                 System.Guid IDofOriginalMesh = mo.Id;
                 Mesh theMesh = mo.MeshGeometry;

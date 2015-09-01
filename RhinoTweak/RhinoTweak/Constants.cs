@@ -17,7 +17,7 @@ namespace RhinoTweak
         public static double flatThresholdForDz = 0.09;
         public static int minFlatsToBeConsideredNotAFeature = 2;
         public static double centroidDifferenceThresholdToMerge = 0.09;
-        public static double curvatureFeatureThresholdLow = 0.7;
+        public static double curvatureFeatureThresholdLow = 0.6;  // dropped to 0.6 on 8/28
         public static double curvatureFeatureThresholdHigh = 1.5;
 
     }
