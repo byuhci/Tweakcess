@@ -27,7 +27,7 @@ namespace RhinoTweak
         private double centroidOffsetFromSurfaceAlongNormal; 
          public kinds kind {
             get; }
-
+        public Boolean centroidIsInsideBlank; 
         // the normal is calculated as vector from point 0 to point 1 
         // crossed with vector from point 0 to point 2.  
         // if you want that flipped because your points are laid out

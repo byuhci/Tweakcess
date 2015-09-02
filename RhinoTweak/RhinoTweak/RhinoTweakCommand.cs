@@ -131,7 +131,8 @@ namespace RhinoTweak
             newBlank.setFeatureType(1, SurfaceFeature.featureType.outie);
             newBlank.setFeatureType(2, SurfaceFeature.featureType.outie);
             // where is the centroid relative to the surface of the widget? 
-            newBlank.setCentroidOffsetFromSurface(-1.6); 
+            newBlank.setCentroidOffsetFromSurface(-1.6);
+            newBlank.centroidIsInsideBlank = false; 
             widgetBlanks.Add(newBlank);
 
             // the slider. 
@@ -150,7 +151,8 @@ namespace RhinoTweak
             newBlank.setFeatureType(0, SurfaceFeature.featureType.outie);
             newBlank.setFeatureType(1, SurfaceFeature.featureType.outie);
             newBlank.setFeatureType(2, SurfaceFeature.featureType.outie);
-            newBlank.setCentroidOffsetFromSurface(4); 
+            newBlank.setCentroidOffsetFromSurface(3);
+            newBlank.centroidIsInsideBlank = true; 
             widgetBlanks.Add(newBlank);
 
 

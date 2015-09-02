@@ -31,10 +31,11 @@ namespace RhinoTweak
                 Vector3d normal = placement.normal;
                 normal.Unitize();
                 Ray3d directionOfNormal = new Ray3d(placement.centroid, normal);
-                Ray3d oppositeOfNormal = new Ray3d(placement.centroid, -1 * normal); 
+                Ray3d oppositeOfNormal = new Ray3d(placement.centroid, -1 * normal);
                 // see if it's viable for some widget type. 
-                foreach (WidgetBlank blank in blanksToUse)
-                {
+                // -- no need to go through all the blank types, just get the 
+                // one that this is.  
+                WidgetBlank blank = placement.widget; 
                     // find the surface of the housing in the direction of the normal. 
                     // ASSUME closest point is the one we want.  
                     // have to go in each direction and take the one with the smallest
@@ -60,7 +61,7 @@ namespace RhinoTweak
                     if (distanceOppositeNormal < 0)
                     {
                         distanceOppositeNormal = double.MaxValue; 
-                    }
+                    }                    
                     // ok, now the smallest one is the closest one,  But I 
                     // also have to get the sign right.  
                     // closest intersection is along normal.  Great. 
@@ -74,17 +75,25 @@ namespace RhinoTweak
                     {
                         offsetFromSurface = -distanceOppositeNormal; 
                     }
-                    // if that all worked then offsetfromsurface contains the 
-                    // signed distance along the normal from the cnetroid to the 
-                    // closet point on the surface. 
-                    #endregion
+                // if that all worked then offsetfromsurface contains the 
+                // signed distance along the normal from the cnetroid to the 
+                // closet point on the surface. 
+                #endregion
+                // is the centroid of the placement inside the mesh?  
+                Boolean placementCentroidIsInMesh =
+                    (distanceAlongNormal != Double.MaxValue && distanceOppositeNormal != Double.MaxValue); 
                     double errorInOffset =
                         Math.Abs(offsetFromSurface - blank.getCentroidOffsetFromSurfaceAlongNormal()); 
-                    if (errorInOffset < Constants.maxAllowableErrorInSurfaceOffsetInWidgetPlacement)
+                // are we close enough to the right offset and are we in the mesh if should be?  
+                // (or out of the mesh if we should be?) 
+                    if (errorInOffset < Constants.maxAllowableErrorInSurfaceOffsetInWidgetPlacement &&
+                        placementCentroidIsInMesh == blank.centroidIsInsideBlank)
                     {
-                        viablePlacements.Add(placement); 
+                        viablePlacements.Add(placement);
+                    RhinoLog.debug("min distance from placement to surface is " + offsetFromSurface + " from the surface");
+                    RhinoLog.debug(" positive direction " + distanceAlongNormal + " negative direction " + distanceOppositeNormal); 
+                    RhinoLog.debug(" and I was looing for " + blank.getCentroidOffsetFromSurfaceAlongNormal()); 
                     }
-                }
             }
             RhinoLog.debug("centroid to surface placement filter return " + viablePlacements.Count);
             return viablePlacements; 
