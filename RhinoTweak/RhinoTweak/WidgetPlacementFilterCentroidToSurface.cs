@@ -23,13 +23,15 @@ namespace RhinoTweak
             HashSet<WidgetPlacement> viablePlacements = new HashSet<WidgetPlacement>();
             RhinoLog.debug("centroid to surface placement filter started with " + existingPlacements.Count); 
             viablePlacements.Clear();
-            Mesh theMesh = housing.theMesh(); 
+            Mesh theMesh = housing.theMesh();
+            theMesh.FaceNormals.ComputeFaceNormals(); 
             // for each placement. 
             foreach (WidgetPlacement placement in existingPlacements)
             {
                 // compute the ray once for this placement.  
                 Vector3d normal = placement.normal;
                 normal.Unitize();
+                Boolean surfaceIsClosestInFront = false; 
                 Ray3d directionOfNormal = new Ray3d(placement.centroid, normal);
                 Ray3d oppositeOfNormal = new Ray3d(placement.centroid, -1 * normal);
                 // see if it's viable for some widget type. 
@@ -60,20 +62,22 @@ namespace RhinoTweak
                     }
                     if (distanceOppositeNormal < 0)
                     {
-                        distanceOppositeNormal = double.MaxValue; 
+                        distanceOppositeNormal = double.MaxValue;
                     }                    
                     // ok, now the smallest one is the closest one,  But I 
                     // also have to get the sign right.  
                     // closest intersection is along normal.  Great. 
                     if (distanceAlongNormal < distanceOppositeNormal)
                     {
-                        offsetFromSurface = distanceAlongNormal; 
+                        offsetFromSurface = distanceAlongNormal;
+                       surfaceIsClosestInFront = true; 
                     }
                     // closest interaction is in direction opposite the normal.
                     // flip the sign. 
                     if (distanceAlongNormal > distanceOppositeNormal)
                     {
-                        offsetFromSurface = -distanceOppositeNormal; 
+                        offsetFromSurface = -distanceOppositeNormal;
+                        surfaceIsClosestInFront = false; 
                     }
                 // if that all worked then offsetfromsurface contains the 
                 // signed distance along the normal from the cnetroid to the 
@@ -83,11 +87,42 @@ namespace RhinoTweak
                 Boolean placementCentroidIsInMesh =
                     (distanceAlongNormal != Double.MaxValue && distanceOppositeNormal != Double.MaxValue); 
                     double errorInOffset =
-                        Math.Abs(offsetFromSurface - blank.getCentroidOffsetFromSurfaceAlongNormal()); 
+                        Math.Abs(offsetFromSurface - blank.getCentroidOffsetFromSurfaceAlongNormal());
+                // if the dot product of the placement and face normal is worth using, then use it. 
+                Boolean dotProductTestFails = false; 
+                if (blank.isDotProductOfFaceNormalWorthUsing)
+                {
+                    int[] closestFaces = new int[10];
+                    if (surfaceIsClosestInFront)
+                    {
+                        // go along the normal. 
+                        Rhino.Geometry.Intersect.Intersection.MeshRay(theMesh, directionOfNormal, out closestFaces);
+                    }
+                    else
+                    {
+                        // go the other direction. 
+                        Rhino.Geometry.Intersect.Intersection.MeshRay(theMesh, oppositeOfNormal, out closestFaces);
+                    }
+                    // just take the first face normal. 
+                    Vector3d faceNormal = theMesh.FaceNormals[closestFaces[0]];
+                    faceNormal.Unitize();
+                    double normalsDotProduct = placement.normal * faceNormal / (placement.normal.Length * faceNormal.Length);
+                    double errorInNormalsDotProduct = Math.Abs(normalsDotProduct - blank.dotProductOfNormalAndMeshFaceNormal);
+                    RhinoLog.debug("normals dot product " + normalsDotProduct + " error in normal " + errorInNormalsDotProduct); 
+                    if (errorInNormalsDotProduct < Constants.maxAllowableErrorInNormalsDotProduct)
+                    {
+                        dotProductTestFails = false; 
+                    } else
+                    {
+                        dotProductTestFails = true; 
+                    }
+
+                }
                 // are we close enough to the right offset and are we in the mesh if should be?  
                 // (or out of the mesh if we should be?) 
-                    if (errorInOffset < Constants.maxAllowableErrorInSurfaceOffsetInWidgetPlacement &&
-                        placementCentroidIsInMesh == blank.centroidIsInsideBlank)
+                if (errorInOffset < Constants.maxAllowableErrorInSurfaceOffsetInWidgetPlacement &&
+                        placementCentroidIsInMesh == blank.centroidIsInsideBlank && 
+                        ! dotProductTestFails)
                     {
                         viablePlacements.Add(placement);
                     RhinoLog.debug("min distance from placement to surface is " + offsetFromSurface + " from the surface");

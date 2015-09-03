@@ -81,8 +81,9 @@ namespace RhinoTweak
             {
                 HousingMesh hm = new HousingMesh(mo.MeshGeometry, mo.Id, doc);
                 // pick your feature finder here.  
-                AbstractFeatureFinder featureFinder = new CurvatureBasedFeatureFinder(
-                    hm.theMesh(), doc);
+                FeatureFinderAbstractBase featureFinder =
+                    new FeatureFinderThreshold(hm.theMesh(), doc); 
+                    // new FeatureFinderMeanCurvature(hm.theMesh(), doc);
                 featureFinder.findFeatures(); 
                 hm.redrawHousingMesh(featureFinder.colorize());
                 // pick you widget location finder here. 
@@ -132,7 +133,9 @@ namespace RhinoTweak
             newBlank.setFeatureType(2, SurfaceFeature.featureType.outie);
             // where is the centroid relative to the surface of the widget? 
             newBlank.setCentroidOffsetFromSurface(-1.6);
-            newBlank.centroidIsInsideBlank = false; 
+            newBlank.centroidIsInsideBlank = false;
+            newBlank.isDotProductOfFaceNormalWorthUsing = true;
+            newBlank.dotProductOfNormalAndMeshFaceNormal = 1.0; 
             widgetBlanks.Add(newBlank);
 
             // the slider. 
@@ -152,7 +155,8 @@ namespace RhinoTweak
             newBlank.setFeatureType(1, SurfaceFeature.featureType.outie);
             newBlank.setFeatureType(2, SurfaceFeature.featureType.outie);
             newBlank.setCentroidOffsetFromSurface(3);
-            newBlank.centroidIsInsideBlank = true; 
+            newBlank.centroidIsInsideBlank = true;
+            newBlank.isDotProductOfFaceNormalWorthUsing = false; 
             widgetBlanks.Add(newBlank);
 
 

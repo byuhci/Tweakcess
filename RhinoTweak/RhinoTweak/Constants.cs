@@ -24,5 +24,8 @@ namespace RhinoTweak
         // 0.75 or more gives two placements.  0.6  or less gives none. 
         // 0.7 gives the wrong one. 
         internal static double maxAllowableErrorInSurfaceOffsetInWidgetPlacement = 1.0;
-   }
+        internal static double maxAllowableErrorInNormalsDotProduct = 0.2;
+        internal static double maxThresholdForCurvatureInFeatureIdentification = 1.5;
+        internal static double minThresholdForCurvatureInFeatureIdentification = 0.15;
+    }
 }

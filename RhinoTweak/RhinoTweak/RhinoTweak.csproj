@@ -53,9 +53,10 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="AbstractFeatureFinder.cs" />
+    <Compile Include="FeatureFinderAbstractBase.cs" />
     <Compile Include="ColorSchemeInterface.cs" />
-    <Compile Include="CurvatureBasedFeatureFinder.cs" />
+    <Compile Include="FeatureFinderMeanCurvature.cs" />
+    <Compile Include="FeatureFinderThreshold.cs" />
     <Compile Include="Utility.cs" />
     <Compile Include="WidgetPlacementAutomatic.cs" />
     <Compile Include="Constants.cs" />

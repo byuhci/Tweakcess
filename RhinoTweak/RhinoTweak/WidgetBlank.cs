@@ -27,7 +27,22 @@ namespace RhinoTweak
         private double centroidOffsetFromSurfaceAlongNormal; 
          public kinds kind {
             get; }
-        public Boolean centroidIsInsideBlank; 
+        public Boolean centroidIsInsideBlank;
+
+        /// <summary>
+        ///  if you go along the normal of the plane defined by the 
+        /// three bumps to the closest point on the widget blank surface
+        /// then take the face normal at that point and then 
+        /// take the dot product of that face normal and the placement
+        /// bumps' normal then you get this value.  
+        /// </summary>
+        public double dotProductOfNormalAndMeshFaceNormal;
+        /// <summary>
+        ///  for some widgets, the dot product of the face and placement
+        /// normal is not useful.  For exmaple a slider the normal passes 
+        /// through a thin face which gets mangled in scanning.  
+        /// </summary>
+        public Boolean isDotProductOfFaceNormalWorthUsing; 
         // the normal is calculated as vector from point 0 to point 1 
         // crossed with vector from point 0 to point 2.  
         // if you want that flipped because your points are laid out

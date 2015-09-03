@@ -36,7 +36,7 @@ namespace RhinoTweak
             {
                 placement.drawCentroid(doc);
                 placement.drawNormal(doc);
-//                placement.drawLinksBetweenFeatures(doc);
+                placement.drawLinksBetweenFeatures(doc);
 
             }
         }
